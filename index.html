@@ -434,32 +434,86 @@
     max-width: 280px;
   }
 
-  /* ── Blocker (no barber selected) ── */
-  .barber-blocker {
-    display: none;
-    flex-direction: column;
+  /* ── Modal overlay ── */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 200;
+    background: rgba(0, 0, 0, 0.85);
+    display: flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
-    padding: 60px 24px;
-    gap: 12px;
+    padding: 24px;
   }
 
-  .barber-blocker.visible {
+  .modal-overlay.hidden {
+    display: none;
+  }
+
+  .modal-box {
+    background: var(--card);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 32px 28px;
+    max-width: 340px;
+    width: 100%;
     display: flex;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
   }
 
-  .barber-blocker h2 {
+  .modal-box h2 {
     font-family: 'Montserrat', sans-serif;
     font-weight: 700;
-    font-size: 18px;
-    color: var(--warn);
+    font-size: 20px;
+    color: var(--text);
   }
 
-  .barber-blocker p {
+  .modal-box p {
     color: var(--dim2);
     font-size: 14px;
   }
+
+  .modal-input {
+    background: var(--card2);
+    color: var(--text);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 16px;
+    width: 100%;
+    outline: none;
+    text-align: center;
+    transition: border-color 0.15s;
+  }
+
+  .modal-input:focus {
+    border-color: var(--consensus);
+  }
+
+  .modal-input::placeholder {
+    color: var(--dim);
+  }
+
+  .modal-btn {
+    background: var(--consensus);
+    color: #fff;
+    border: none;
+    border-radius: var(--radius);
+    padding: 14px;
+    font-family: 'Montserrat', sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    min-height: 48px;
+    transition: opacity 0.15s;
+  }
+
+  .modal-btn:hover { opacity: 0.9; }
+  .modal-btn:disabled { opacity: 0.4; cursor: default; }
 
   /* ── Loading ── */
   .loading-screen {
@@ -503,14 +557,18 @@
   <div class="logo">HairMatch</div>
   <div class="header-right">
     <div class="progress-badge" id="progress-badge">— / —</div>
-    <select class="barber-select" id="barber-select">
-      <option value="">Барбер...</option>
-      <option value="taiga">Тайга</option>
-      <option value="barber2">Барбер 2</option>
-      <option value="barber3">Барбер 3</option>
-    </select>
+    <div class="barber-name-display" id="barber-name-display" style="font-size:13px; color:var(--consensus); cursor:pointer; padding:6px 10px; border:1px solid var(--border2); border-radius:8px;" title="Сменить имя"></div>
   </div>
 </header>
+
+<div class="modal-overlay" id="barber-modal">
+  <div class="modal-box">
+    <h2>Как вас зовут?</h2>
+    <p>Введите имя, чтобы начать разметку</p>
+    <input class="modal-input" id="barber-name-input" type="text" placeholder="Ваше имя" autocomplete="off" maxlength="30">
+    <button class="modal-btn" id="barber-modal-btn" disabled>Начать</button>
+  </div>
+</div>
 
 <div class="main" id="main-content">
   <!-- Populated by JS -->
@@ -526,11 +584,6 @@ const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwXKgOuUi149mVce916
 const TAGS_URL = 'tags-consensus.json';
 const PHOTOS_DIR = 'photos/';
 
-const BARBERS = [
-  { id: 'taiga', label: 'Тайга' },
-  { id: 'barber2', label: 'Барбер 2' },
-  { id: 'barber3', label: 'Барбер 3' },
-];
 
 const DIMENSIONS_REQUIRED = [
   { key: 'style',        label: 'Стрижка', opts: { textured_crop:'Кроп', classic:'Классика', buzz_crew:'Бокс', medium_textured:'Средняя', long:'Удлинённая' } },
@@ -597,16 +650,36 @@ function showToast(msg, type = '', duration = 3000) {
 async function init() {
   renderLoading();
 
-  // Restore barber
+  // Restore barber or show modal
   barberId = localStorage.getItem(LS_BARBER) || '';
-  const sel = document.getElementById('barber-select');
-  if (barberId) sel.value = barberId;
-  sel.addEventListener('change', () => {
-    barberId = sel.value;
-    if (barberId) localStorage.setItem(LS_BARBER, barberId);
-    else localStorage.removeItem(LS_BARBER);
-    currentIdx = findFirstUntagged();
-    render();
+  if (barberId) {
+    hideBarberModal();
+    updateBarberDisplay();
+  } else {
+    showBarberModal();
+  }
+
+  // Modal logic
+  const modalInput = document.getElementById('barber-name-input');
+  const modalBtn = document.getElementById('barber-modal-btn');
+
+  modalInput.addEventListener('input', () => {
+    modalBtn.disabled = !modalInput.value.trim();
+  });
+
+  modalBtn.addEventListener('click', () => submitBarberName());
+  modalInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && modalInput.value.trim()) submitBarberName();
+  });
+
+  // Click name in header to change
+  document.getElementById('barber-name-display').addEventListener('click', () => {
+    showBarberModal();
+  });
+
+  // Escape closes modal if barber already set
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && barberId) hideBarberModal();
   });
 
   // Load consensus tags
@@ -672,11 +745,7 @@ function render() {
     barberId ? `${tagged} / ${total}` : '— / —';
 
   if (!barberId) {
-    main.innerHTML = `
-      <div class="barber-blocker visible">
-        <h2>Выберите барбера</h2>
-        <p>Для начала выберите своё имя в списке вверху.</p>
-      </div>`;
+    showBarberModal();
     return;
   }
 
@@ -927,6 +996,35 @@ function handleReset() {
   currentTags = {};
   render();
   showToast('Прогресс сброшен', '', 2500);
+}
+
+// ── Barber modal ──────────────────────────────────────────────────────────────
+function showBarberModal() {
+  const modal = document.getElementById('barber-modal');
+  const input = document.getElementById('barber-name-input');
+  modal.classList.remove('hidden');
+  input.value = '';
+  document.getElementById('barber-modal-btn').disabled = true;
+  setTimeout(() => input.focus(), 100);
+}
+
+function hideBarberModal() {
+  document.getElementById('barber-modal').classList.add('hidden');
+}
+
+function updateBarberDisplay() {
+  document.getElementById('barber-name-display').textContent = barberId;
+}
+
+function submitBarberName() {
+  const name = document.getElementById('barber-name-input').value.trim();
+  if (!name) return;
+  barberId = name.toLowerCase();
+  localStorage.setItem(LS_BARBER, barberId);
+  hideBarberModal();
+  updateBarberDisplay();
+  currentIdx = findFirstUntagged();
+  render();
 }
 
 // ── Start ─────────────────────────────────────────────────────────────────────
