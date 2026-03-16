@@ -871,12 +871,13 @@ async function handleSave(fname, notHaircut) {
 
   // POST to webhook
   try {
-    const resp = await fetch(WEBHOOK_URL, {
+    await fetch(WEBHOOK_URL, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
+      mode: 'no-cors',
     });
-    if (!resp.ok) throw new Error('HTTP ' + resp.status);
+    // no-cors: response is opaque (can't read status), but data arrives.
+    // If network is truly down, fetch() itself will throw.
 
     markTagged(barberId, fname);
     showToast(notHaircut ? 'Пропущено' : 'Сохранено ✓', 'success');
