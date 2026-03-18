@@ -623,7 +623,7 @@
 const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwXKgOuUi149mVce916gofyirOr-Bc05wIJdUxE0x8yF90oqFmVC9PWgRgRD5oqO2ZA/exec';
 const TAGS_URL = 'tags-consensus.json';
 const PHOTOS_DIR = 'photos/';
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 // ── Dimensions ──────────────────────────────────────────────────────────────
 const DIMENSIONS = {
@@ -682,10 +682,12 @@ const DIMENSIONS = {
     }
   },
   fringe: {
-    label: 'Чёлка',
+    label: 'Чёлка / Фронтальная зона',
     values: {
-      none:       'Без чёлки',
-      textured:   'Текстурная',
+      none:       'Нет / Базз',
+      swept_back: 'От лица',
+      up:         'Вверх',
+      textured:   'Рваная',
       blunt:      'Прямая',
       side_swept: 'Косая',
       curtain:    'Шторки'
@@ -737,13 +739,13 @@ const REQUIRED_KEYS = ['side_treatment', 'top_length', 'styling_direction', 'tra
 // ── Shortcuts ───────────────────────────────────────────────────────────────
 const SHORTCUTS = {
   'Кроп':     { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'short', styling_direction:'forward', transition:'blended', fringe:'textured', finish:'textured', design_elements:['none'] },
-  'Помпадур': { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'blended', fringe:'none', finish:'polished', design_elements:['none'] },
-  'Андеркат': { side_treatment:'mid_fade', fade_finish:'shadow', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'disconnected', fringe:'none', finish:'polished', design_elements:['none'] },
+  'Помпадур': { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'blended', fringe:'swept_back', finish:'polished', design_elements:['none'] },
+  'Андеркат': { side_treatment:'mid_fade', fade_finish:'shadow', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'disconnected', fringe:'swept_back', finish:'polished', design_elements:['none'] },
   'Шторки':   { side_treatment:'taper', top_length:'medium', styling_direction:'center_parted', transition:'blended', fringe:'curtain', finish:'natural', design_elements:['none'] },
   'Эдгар':    { side_treatment:'high_fade', fade_finish:'skin', fade_shape:'straight', top_length:'short', styling_direction:'forward', transition:'disconnected', fringe:'blunt', finish:'textured', design_elements:['lineup'] },
   'Полубокс': { side_treatment:'low_fade', fade_finish:'shadow', fade_shape:'straight', top_length:'short', styling_direction:'forward', transition:'blended', fringe:'textured', finish:'natural', design_elements:['none'] },
   'Канадка':  { side_treatment:'taper', top_length:'medium', styling_direction:'side_swept', transition:'blended', fringe:'side_swept', finish:'polished', design_elements:['none'] },
-  'Сликбэк':  { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'blended', fringe:'none', finish:'polished', design_elements:['none'] },
+  'Сликбэк':  { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'blended', fringe:'swept_back', finish:'polished', design_elements:['none'] },
   'Базз':     { side_treatment:'taper', top_length:'buzz', styling_direction:'undirected', transition:'uniform', fringe:'none', finish:'natural', design_elements:['none'] }
 };
 
