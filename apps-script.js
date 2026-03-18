@@ -2,7 +2,7 @@
 // Deploy as: Web App → Execute as: Me → Who has access: Anyone
 //
 // Sheet columns (row 1 headers):
-// timestamp | barber_id | photo_filename | style | fade | hair_texture | beard | face_visible | face_shape | hair_color | age_group | usable | notes
+// timestamp | barber_id | photo_filename | side_treatment | fade_finish | fade_shape | top_length | styling_direction | transition | fringe | finish | design_elements | beard | face_visible | usable | notes
 
 function doPost(e) {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
@@ -12,14 +12,17 @@ function doPost(e) {
     data.timestamp || new Date().toISOString(),
     data.barber_id || '',
     data.photo_filename || '',
-    data.style || '',
-    data.fade || '',
-    data.hair_texture || '',
+    data.side_treatment || '',
+    data.fade_finish || '',
+    data.fade_shape || '',
+    data.top_length || '',
+    data.styling_direction || '',
+    data.transition || '',
+    data.fringe || '',
+    data.finish || '',
+    data.design_elements || '',
     data.beard || '',
     data.face_visible || '',
-    data.face_shape || '',
-    data.hair_color || '',
-    data.age_group || '',
     data.usable !== undefined ? data.usable : '',
     data.notes || ''
   ]);

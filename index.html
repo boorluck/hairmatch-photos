@@ -22,6 +22,7 @@
     --disagree: #f87171;
     --consensus: #a78bfa;
     --warn: #facc15;
+    --shortcut: #38bdf8;
   }
 
   *, *::before, *::after {
@@ -193,6 +194,43 @@
     cursor: default;
   }
 
+  /* ── Shortcuts bar ── */
+  .shortcuts-bar {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    padding: 4px 0;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .shortcuts-bar::-webkit-scrollbar { display: none; }
+
+  .shortcut-btn {
+    flex-shrink: 0;
+    background: transparent;
+    color: var(--shortcut);
+    border: 1px solid var(--shortcut);
+    border-radius: 20px;
+    padding: 7px 14px;
+    font-family: 'Inter', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    touch-action: manipulation;
+    white-space: nowrap;
+  }
+
+  .shortcut-btn:hover, .shortcut-btn:active {
+    background: rgba(56, 189, 248, 0.15);
+  }
+
+  .shortcut-btn.used {
+    background: rgba(56, 189, 248, 0.12);
+    color: var(--shortcut);
+  }
+
   /* ── Tag sections ── */
   .tags-card {
     background: var(--card);
@@ -202,11 +240,6 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
-  }
-
-  .tags-card.optional-card {
-    background: var(--card2);
-    border-color: var(--border);
   }
 
   .section-label {
@@ -222,6 +255,21 @@
     display: flex;
     align-items: flex-start;
     gap: 10px;
+  }
+
+  .tag-row.conditional {
+    overflow: hidden;
+    max-height: 0;
+    opacity: 0;
+    margin: 0;
+    padding: 0;
+    transition: max-height 0.3s ease, opacity 0.25s ease, margin 0.3s ease;
+  }
+
+  .tag-row.conditional.visible {
+    max-height: 80px;
+    opacity: 1;
+    margin-top: 0;
   }
 
   .tag-label {
@@ -266,14 +314,6 @@
     background: rgba(167, 139, 250, 0.18);
     border-color: var(--consensus);
     color: var(--consensus);
-  }
-
-  .optional-card .tag-btn {
-    background: var(--card);
-  }
-
-  .optional-card .tag-btn.active {
-    background: rgba(167, 139, 250, 0.12);
   }
 
   /* ── Notes ── */
@@ -543,7 +583,7 @@
   /* ── Responsive ── */
   @media (min-width: 480px) {
     .tag-label {
-      min-width: 80px;
+      min-width: 90px;
     }
     .logo {
       font-size: 20px;
@@ -583,36 +623,157 @@
 const WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycbwXKgOuUi149mVce916gofyirOr-Bc05wIJdUxE0x8yF90oqFmVC9PWgRgRD5oqO2ZA/exec';
 const TAGS_URL = 'tags-consensus.json';
 const PHOTOS_DIR = 'photos/';
+const SCHEMA_VERSION = 2;
 
+// ── Dimensions ──────────────────────────────────────────────────────────────
+const DIMENSIONS = {
+  side_treatment: {
+    label: 'Виски и затылок',
+    values: {
+      long_sides: 'Без фейда',
+      taper:      'Тейпер',
+      low_fade:   'Лоу фейд',
+      mid_fade:   'Мид фейд',
+      high_fade:  'Хай фейд'
+    }
+  },
+  fade_finish: {
+    label: 'Степень фейда',
+    condition: (tags) => ['low_fade','mid_fade','high_fade'].includes(tags.side_treatment),
+    values: {
+      skin:   'Скин / До кожи',
+      shadow: 'Шедоу / Теневой'
+    }
+  },
+  fade_shape: {
+    label: 'Форма фейда',
+    condition: (tags) => ['low_fade','mid_fade','high_fade'].includes(tags.side_treatment),
+    values: {
+      straight: 'Прямой',
+      drop:     'Дроп',
+      burst:    'Бёрст'
+    }
+  },
+  top_length: {
+    label: 'Длина верха',
+    values: {
+      buzz:   'Базз (<1см)',
+      short:  'Короткий (1-4см)',
+      medium: 'Средний (4-10см)',
+      long:   'Длинный (10см+)'
+    }
+  },
+  styling_direction: {
+    label: 'Направление',
+    values: {
+      forward:       'Вперёд / На лоб',
+      up_and_back:   'Назад и вверх',
+      side_swept:    'Набок',
+      center_parted: 'Шторки / По центру',
+      undirected:    'Текстурный / Без направления'
+    }
+  },
+  transition: {
+    label: 'Переход',
+    values: {
+      blended:      'Плавный',
+      disconnected: 'Дисконнект',
+      uniform:      'Одна длина'
+    }
+  },
+  fringe: {
+    label: 'Чёлка',
+    values: {
+      none:       'Без чёлки',
+      textured:   'Текстурная',
+      blunt:      'Прямая',
+      side_swept: 'Косая',
+      curtain:    'Шторки'
+    }
+  },
+  finish: {
+    label: 'Финиш',
+    values: {
+      polished: 'Гладкий',
+      textured: 'Текстурный',
+      natural:  'Натуральный'
+    }
+  },
+  design_elements: {
+    label: 'Дизайн',
+    multi_select: true,
+    values: {
+      hard_part:   'Хард парт',
+      lineup:      'Лайн-ап',
+      hair_design: 'Хэйр тату',
+      none:        'Без дизайна'
+    }
+  },
+  beard: {
+    label: 'Борода',
+    values: {
+      none:    'Нет',
+      stubble: 'Щетина',
+      short:   'Короткая',
+      full:    'Полная'
+    }
+  },
+  face_visible: {
+    label: 'Лицо',
+    values: {
+      full:    'Полное',
+      partial: 'Частичное',
+      profile: 'Профиль',
+      back:    'Затылок'
+    }
+  }
+};
 
-const DIMENSIONS_REQUIRED = [
-  { key: 'style',        label: 'Стрижка', opts: { textured_crop:'Кроп', classic:'Классика', buzz_crew:'Бокс', medium_textured:'Средняя', long:'Удлинённая' } },
-  { key: 'fade',         label: 'Фейд',    opts: { skin:'Скин', low:'Низкий', mid:'Средний', high:'Высокий', none:'Нет' } },
-  { key: 'hair_texture', label: 'Текстура', opts: { straight:'Прямые', wavy:'Волнистые', curly:'Кудрявые' } },
-  { key: 'beard',        label: 'Борода',  opts: { none:'Нет', stubble:'Щетина', short:'Короткая', full:'Полная' } },
-  { key: 'face_visible', label: 'Лицо',    opts: { full:'Полная', partial:'Частичная', profile:'Профиль', back:'Затылок' } },
-];
+const DIM_KEYS = Object.keys(DIMENSIONS);
 
-const DIMENSIONS_OPTIONAL = [
-  { key: 'face_shape',  label: 'Форма лица', opts: { oval:'Овал', round:'Круглое', square:'Квадрат', oblong:'Вытянутое', angular:'Угловатое' } },
-  { key: 'hair_color',  label: 'Цвет волос', opts: { dark:'Тёмные', medium:'Средние', light:'Светлые', colored:'Окрашенные' } },
-  { key: 'age_group',   label: 'Возраст',   opts: { teen:'Подросток', young_adult:'18-30', adult:'30+' } },
-];
+// Fields that must be filled for save (excluding conditional when hidden)
+const REQUIRED_KEYS = ['side_treatment', 'top_length', 'styling_direction', 'transition', 'fringe', 'finish', 'design_elements', 'beard', 'face_visible'];
 
-const ALL_DIMENSIONS = [...DIMENSIONS_REQUIRED, ...DIMENSIONS_OPTIONAL];
+// ── Shortcuts ───────────────────────────────────────────────────────────────
+const SHORTCUTS = {
+  'Кроп':     { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'short', styling_direction:'forward', transition:'blended', fringe:'textured', finish:'textured', design_elements:['none'] },
+  'Помпадур': { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'blended', fringe:'none', finish:'polished', design_elements:['none'] },
+  'Андеркат': { side_treatment:'mid_fade', fade_finish:'shadow', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'disconnected', fringe:'none', finish:'polished', design_elements:['none'] },
+  'Шторки':   { side_treatment:'taper', top_length:'medium', styling_direction:'center_parted', transition:'blended', fringe:'curtain', finish:'natural', design_elements:['none'] },
+  'Эдгар':    { side_treatment:'high_fade', fade_finish:'skin', fade_shape:'straight', top_length:'short', styling_direction:'forward', transition:'disconnected', fringe:'blunt', finish:'textured', design_elements:['lineup'] },
+  'Полубокс': { side_treatment:'low_fade', fade_finish:'shadow', fade_shape:'straight', top_length:'short', styling_direction:'forward', transition:'blended', fringe:'textured', finish:'natural', design_elements:['none'] },
+  'Канадка':  { side_treatment:'taper', top_length:'medium', styling_direction:'side_swept', transition:'blended', fringe:'side_swept', finish:'polished', design_elements:['none'] },
+  'Сликбэк':  { side_treatment:'low_fade', fade_finish:'skin', fade_shape:'straight', top_length:'medium', styling_direction:'up_and_back', transition:'blended', fringe:'none', finish:'polished', design_elements:['none'] },
+  'Базз':     { side_treatment:'taper', top_length:'buzz', styling_direction:'undirected', transition:'uniform', fringe:'none', finish:'natural', design_elements:['none'] }
+};
 
 // ── State ────────────────────────────────────────────────────────────────────
-let photos = [];          // sorted filenames
-let consensus = {};       // { filename: { style, fade, ... } }
-let currentIdx = 0;       // index into photos[]
-let currentTags = {};     // working tag values for current photo
+let photos = [];
+let consensus = {};
+let currentIdx = 0;
+let currentTags = {};
 let barberId = '';
 let isSaving = false;
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS_BARBER = 'hm_barber';
+const LS_SCHEMA = 'hm_schema_version';
 const lsTaggedKey = (bid) => `hm_tagged_${bid}`;
 const lsBackupKey = (bid, fname) => `hm_backup_${bid}_${fname}`;
+
+function migrateLocalStorage() {
+  const stored = parseInt(localStorage.getItem(LS_SCHEMA) || '0', 10);
+  if (stored < SCHEMA_VERSION) {
+    // Clear old progress since schema changed
+    const keys = Object.keys(localStorage);
+    for (const k of keys) {
+      if (k.startsWith('hm_tagged_') || k.startsWith('hm_backup_')) {
+        localStorage.removeItem(k);
+      }
+    }
+    localStorage.setItem(LS_SCHEMA, String(SCHEMA_VERSION));
+  }
+}
 
 function getTagged(bid) {
   try { return JSON.parse(localStorage.getItem(lsTaggedKey(bid)) || '{}'); } catch { return {}; }
@@ -648,9 +809,9 @@ function showToast(msg, type = '', duration = 3000) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 async function init() {
+  migrateLocalStorage();
   renderLoading();
 
-  // Restore barber or show modal
   barberId = localStorage.getItem(LS_BARBER) || '';
   if (barberId) {
     hideBarberModal();
@@ -672,12 +833,10 @@ async function init() {
     if (e.key === 'Enter' && modalInput.value.trim()) submitBarberName();
   });
 
-  // Click name in header to change
   document.getElementById('barber-name-display').addEventListener('click', () => {
     showBarberModal();
   });
 
-  // Escape closes modal if barber already set
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && barberId) hideBarberModal();
   });
@@ -692,10 +851,8 @@ async function init() {
     consensus = {};
   }
 
-  // Build photo list from consensus keys, sorted reverse by filename
   photos = Object.keys(consensus).sort().reverse();
 
-  // If no photos in consensus, show empty state
   if (photos.length === 0) {
     renderEmpty();
     return;
@@ -738,7 +895,6 @@ function renderEmpty() {
 function render() {
   const main = document.getElementById('main-content');
 
-  // Update progress badge
   const tagged = countTagged();
   const total = photos.length;
   document.getElementById('progress-badge').textContent =
@@ -749,7 +905,6 @@ function render() {
     return;
   }
 
-  // All tagged?
   if (tagged === total) {
     main.innerHTML = `
       <div class="completion visible">
@@ -765,33 +920,38 @@ function render() {
   }
 
   const fname = photos[currentIdx];
-  const con = consensus[fname] || {};
   const tagged_this = isTagged(barberId, fname);
 
-  // Build current tags from consensus (for new photos) or blank
+  // Init tags for this photo if needed
   if (!currentTags._loaded_for || currentTags._loaded_for !== fname) {
     currentTags = { _loaded_for: fname };
-    for (const d of ALL_DIMENSIONS) {
-      currentTags[d.key] = con[d.key] || null;
+    // Don't pre-fill new dimensions from old consensus — start blank
+    for (const key of DIM_KEYS) {
+      if (DIMENSIONS[key].multi_select) {
+        currentTags[key] = [];
+      } else {
+        currentTags[key] = null;
+      }
     }
-    currentTags.usable = con.usable !== false;
+    // Pre-fill beard and face_visible from old consensus if available
+    const con = consensus[fname] || {};
+    if (con.beard && DIMENSIONS.beard.values[con.beard]) currentTags.beard = con.beard;
+    if (con.face_visible && DIMENSIONS.face_visible.values[con.face_visible]) currentTags.face_visible = con.face_visible;
     currentTags.notes = '';
   }
 
   main.innerHTML = buildPhotoCard(fname, tagged_this) +
+    buildShortcutsBar() +
     buildTagsCard() +
-    buildOptionalCard() +
     buildActionsCard();
 
-  // Attach events
   attachTagEvents();
   attachActionEvents(fname);
+  updateConditionalRows();
 
-  // Nav buttons
   document.getElementById('btn-prev').disabled = currentIdx === 0;
   document.getElementById('btn-next').disabled = currentIdx === photos.length - 1;
 
-  // Restore notes if any
   const notesEl = document.getElementById('notes-input');
   if (notesEl) notesEl.value = currentTags.notes || '';
 }
@@ -813,35 +973,42 @@ function buildPhotoCard(fname, isTaggedPhoto) {
     </div>`;
 }
 
+function buildShortcutsBar() {
+  let btns = '';
+  for (const name of Object.keys(SHORTCUTS)) {
+    btns += `<button class="shortcut-btn" data-shortcut="${name}">${name}</button>`;
+  }
+  return `<div class="shortcuts-bar">${btns}</div>`;
+}
+
 function buildTagsCard() {
   let rows = '';
-  for (const d of DIMENSIONS_REQUIRED) {
-    rows += buildTagRow(d);
+  for (const key of DIM_KEYS) {
+    rows += buildTagRow(key);
   }
   return `<div class="tags-card">${rows}</div>`;
 }
 
-function buildOptionalCard() {
-  let rows = '';
-  for (const d of DIMENSIONS_OPTIONAL) {
-    rows += buildTagRow(d);
-  }
-  return `
-    <div class="tags-card optional-card">
-      <div class="section-label">Дополнительно</div>
-      ${rows}
-    </div>`;
-}
+function buildTagRow(key) {
+  const dim = DIMENSIONS[key];
+  const isConditional = !!dim.condition;
+  const isMulti = !!dim.multi_select;
+  const selected = currentTags[key];
 
-function buildTagRow(dim) {
-  const active = currentTags[dim.key];
   let btns = '';
-  for (const [val, label] of Object.entries(dim.opts)) {
-    const isActive = active === val;
-    btns += `<button class="tag-btn${isActive ? ' active' : ''}" data-dim="${dim.key}" data-val="${val}">${label}</button>`;
+  for (const [val, label] of Object.entries(dim.values)) {
+    let isActive;
+    if (isMulti) {
+      isActive = Array.isArray(selected) && selected.includes(val);
+    } else {
+      isActive = selected === val;
+    }
+    btns += `<button class="tag-btn${isActive ? ' active' : ''}" data-dim="${key}" data-val="${val}">${label}</button>`;
   }
+
+  const conditionalClass = isConditional ? ' conditional' : '';
   return `
-    <div class="tag-row">
+    <div class="tag-row${conditionalClass}" data-row="${key}">
       <div class="tag-label">${dim.label}</div>
       <div class="btn-group">${btns}</div>
     </div>`;
@@ -857,18 +1024,108 @@ function buildActionsCard() {
     </div>`;
 }
 
+// ── Tag interaction ──────────────────────────────────────────────────────────
 function attachTagEvents() {
   document.querySelectorAll('.tag-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const dim = btn.dataset.dim;
       const val = btn.dataset.val;
-      currentTags[dim] = val;
-      // Update active state in group
-      document.querySelectorAll(`.tag-btn[data-dim="${dim}"]`).forEach(b => {
-        b.classList.toggle('active', b.dataset.val === val);
-      });
+      const dimDef = DIMENSIONS[dim];
+
+      if (dimDef.multi_select) {
+        handleMultiSelect(dim, val);
+      } else {
+        currentTags[dim] = val;
+        document.querySelectorAll(`.tag-btn[data-dim="${dim}"]`).forEach(b => {
+          b.classList.toggle('active', b.dataset.val === val);
+        });
+      }
+
+      // Update conditional rows when side_treatment changes
+      if (dim === 'side_treatment') {
+        updateConditionalRows();
+      }
     });
   });
+
+  // Shortcut buttons
+  document.querySelectorAll('.shortcut-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const name = btn.dataset.shortcut;
+      applyShortcut(name);
+      // Visual feedback
+      document.querySelectorAll('.shortcut-btn').forEach(b => b.classList.remove('used'));
+      btn.classList.add('used');
+    });
+  });
+}
+
+function handleMultiSelect(dim, val) {
+  let selected = Array.isArray(currentTags[dim]) ? [...currentTags[dim]] : [];
+
+  if (val === 'none') {
+    // Selecting "none" clears everything else
+    selected = ['none'];
+  } else {
+    // Remove "none" if present
+    selected = selected.filter(v => v !== 'none');
+    // Toggle the value
+    if (selected.includes(val)) {
+      selected = selected.filter(v => v !== val);
+    } else {
+      selected.push(val);
+    }
+    // If nothing selected, default to empty
+    if (selected.length === 0) selected = [];
+  }
+
+  currentTags[dim] = selected;
+
+  // Update buttons
+  document.querySelectorAll(`.tag-btn[data-dim="${dim}"]`).forEach(b => {
+    b.classList.toggle('active', selected.includes(b.dataset.val));
+  });
+}
+
+function updateConditionalRows() {
+  for (const key of DIM_KEYS) {
+    const dim = DIMENSIONS[key];
+    if (!dim.condition) continue;
+    const row = document.querySelector(`.tag-row[data-row="${key}"]`);
+    if (!row) continue;
+
+    const visible = dim.condition(currentTags);
+    row.classList.toggle('visible', visible);
+
+    // Clear conditional values when hidden
+    if (!visible && currentTags[key]) {
+      currentTags[key] = null;
+      row.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+    }
+  }
+}
+
+function applyShortcut(name) {
+  const preset = SHORTCUTS[name];
+  if (!preset) return;
+
+  for (const [key, val] of Object.entries(preset)) {
+    if (val === null || val === undefined) continue;
+    currentTags[key] = val;
+
+    // Update UI
+    if (DIMENSIONS[key].multi_select) {
+      document.querySelectorAll(`.tag-btn[data-dim="${key}"]`).forEach(b => {
+        b.classList.toggle('active', Array.isArray(val) && val.includes(b.dataset.val));
+      });
+    } else {
+      document.querySelectorAll(`.tag-btn[data-dim="${key}"]`).forEach(b => {
+        b.classList.toggle('active', b.dataset.val === val);
+      });
+    }
+  }
+
+  updateConditionalRows();
 }
 
 function attachActionEvents(fname) {
@@ -889,7 +1146,7 @@ function navigate(delta) {
   const newIdx = currentIdx + delta;
   if (newIdx < 0 || newIdx >= photos.length) return;
   currentIdx = newIdx;
-  currentTags = {};   // force reload
+  currentTags = {};
   animatePhoto(() => render());
 }
 
@@ -907,27 +1164,49 @@ async function handleSave(fname, notHaircut) {
   const notes = (document.getElementById('notes-input') || {}).value || '';
   currentTags.notes = notes;
 
+  // Check conditional visibility
+  const fadeVisible = DIMENSIONS.fade_finish.condition(currentTags);
+
   const payload = {
     timestamp: new Date().toISOString(),
     barber_id: barberId,
     photo_filename: fname,
-    style: currentTags.style || null,
-    fade: currentTags.fade || null,
-    hair_texture: currentTags.hair_texture || null,
-    beard: currentTags.beard || null,
-    face_visible: currentTags.face_visible || null,
-    face_shape: currentTags.face_shape || null,
-    hair_color: currentTags.hair_color || null,
-    age_group: currentTags.age_group || null,
+    side_treatment: currentTags.side_treatment || '',
+    fade_finish: fadeVisible ? (currentTags.fade_finish || '') : '',
+    fade_shape: fadeVisible ? (currentTags.fade_shape || '') : '',
+    top_length: currentTags.top_length || '',
+    styling_direction: currentTags.styling_direction || '',
+    transition: currentTags.transition || '',
+    fringe: currentTags.fringe || '',
+    finish: currentTags.finish || '',
+    design_elements: Array.isArray(currentTags.design_elements) ? currentTags.design_elements.join(',') : '',
+    beard: currentTags.beard || '',
+    face_visible: currentTags.face_visible || '',
     usable: notHaircut ? false : true,
     notes: currentTags.notes || '',
   };
 
-  // Validate required fields (only if not "not haircut")
+  // Validate required fields (only if usable)
   if (!notHaircut) {
-    const missing = DIMENSIONS_REQUIRED.filter(d => !payload[d.key]);
+    const missing = [];
+    for (const key of REQUIRED_KEYS) {
+      const dim = DIMENSIONS[key];
+      // Skip conditional fields that are hidden
+      if (dim.condition && !dim.condition(currentTags)) continue;
+      const val = currentTags[key];
+      if (dim.multi_select) {
+        if (!Array.isArray(val) || val.length === 0) missing.push(dim.label);
+      } else {
+        if (!val) missing.push(dim.label);
+      }
+    }
+    // Also require fade fields when visible
+    if (fadeVisible) {
+      if (!currentTags.fade_finish) missing.push(DIMENSIONS.fade_finish.label);
+      if (!currentTags.fade_shape) missing.push(DIMENSIONS.fade_shape.label);
+    }
     if (missing.length > 0) {
-      showToast('Заполните обязательные поля:\n' + missing.map(d => d.label).join(', '), 'error', 4000);
+      showToast('Заполните:\n' + missing.join(', '), 'error', 4000);
       return;
     }
   }
@@ -935,18 +1214,14 @@ async function handleSave(fname, notHaircut) {
   isSaving = true;
   setSavingState(true);
 
-  // Save backup locally first
   saveBackup(barberId, fname, payload);
 
-  // POST to webhook
   try {
     await fetch(WEBHOOK_URL, {
       method: 'POST',
       body: JSON.stringify(payload),
       mode: 'no-cors',
     });
-    // no-cors: response is opaque (can't read status), but data arrives.
-    // If network is truly down, fetch() itself will throw.
 
     markTagged(barberId, fname);
     showToast(notHaircut ? 'Пропущено' : 'Сохранено ✓', 'success');
@@ -954,14 +1229,7 @@ async function handleSave(fname, notHaircut) {
 
   } catch (e) {
     console.error('Webhook error:', e);
-    // If webhook URL is placeholder, still save locally
-    if (WEBHOOK_URL === 'YOUR_GOOGLE_APPS_SCRIPT_URL') {
-      markTagged(barberId, fname);
-      showToast('Сохранено локально (webhook не настроен)', '', 3000);
-      advanceToNext();
-    } else {
-      showToast('Ошибка отправки. Попробуйте ещё раз.', 'error');
-    }
+    showToast('Ошибка отправки. Попробуйте ещё раз.', 'error');
   } finally {
     isSaving = false;
     setSavingState(false);
@@ -980,7 +1248,6 @@ function advanceToNext() {
   if (nextIdx !== -1) {
     currentIdx = nextIdx;
   } else {
-    // Try from beginning
     const fromStart = photos.findIndex(f => !isTagged(barberId, f));
     if (fromStart !== -1) currentIdx = fromStart;
   }
