@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
 <title>HairMatch — Теггинг</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -845,7 +847,7 @@ async function init() {
 
   // Load consensus tags
   try {
-    const resp = await fetch(TAGS_URL);
+    const resp = await fetch(TAGS_URL + '?v=' + SCHEMA_VERSION);
     if (!resp.ok) throw new Error('HTTP ' + resp.status);
     consensus = await resp.json();
   } catch (e) {
